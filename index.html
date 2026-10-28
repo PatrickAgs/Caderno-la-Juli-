@@ -1049,7 +1049,7 @@
       <button type="button" class="btn" data-a="copiar">Copiar backup como texto</button>
       <button type="button" class="btn" data-a="bloquear">${ic('cadeado')}Bloquear agora</button>
       <button type="button" class="btn" data-a="trocar-pin">Trocar PIN</button>
-      ${suportaDigital ? `<button type="button" class="btn" data-a="digital">${ic('digital')}${db.digital ? 'Desligar entrada com digital' : 'Entrar com a digital'}</button>` : `<p class="nota" style="text-align:left">Entrar com a digital funciona quando o caderno está aberto pelo endereço do site no celular, com a digital ou o rosto já cadastrados no aparelho.</p>`}
+      ${suportaDigital ? `<button type="button" class="btn" data-a="digital">${ic('digital')}${db.digital ? 'Desligar entrada com digital' : 'Ligar entrada com digital'}</button>` : `<p class="nota" style="text-align:left">Entrar com a digital funciona quando o caderno está aberto pelo endereço do site no celular, com a digital ou o rosto já cadastrados no aparelho.</p>`}
       ${temExemplo() ? `<button type="button" class="btn" data-a="limpar-exemplo">Apagar dados de exemplo</button>`
         : !db.lanc.length && !db.clientes.length ? `<button type="button" class="btn" data-a="exemplo">Ver com dados de exemplo</button>` : ''}
       <button type="button" class="btn btn-perigo" data-a="apagar">Apagar tudo</button>
@@ -1065,6 +1065,7 @@
     if (a === 'bloquear') { folha.close(); bloquear(); }
     if (a === 'trocar-pin') { folha.close(); iniciarPin('novo'); }
     if (a === 'digital') { if (db.digital) { db.digital = null; salvar(); folha.close(); aviso('Entrada com digital desligada'); } else ativarDigital(); }
+    if (a === 'sem-digital') { db.semDigital = true; salvar(); folha.close(); }
     if (a === 'exemplo') { carregarExemplo(); folha.close(); }
     if (a === 'limpar-exemplo') { limparExemplo(); folha.close(); }
     if (a === 'apagar') {
@@ -1186,10 +1187,10 @@
   function errou(msg) { pontos.classList.remove('treme'); void pontos.offsetWidth; pontos.classList.add('treme'); digitado = ''; desenhaPontos(); $('#cofre-dica').textContent = msg; }
   async function pinCompleto() {
     if (modoPin === 'entrar') {
-      if (await hashPin(digitado) === db.pin) { tentativas = 0; mostrarApp(true); }
+      if (await hashPin(digitado) === db.pin) { tentativas = 0; mostrarApp(true); oferecerDigital(); }
       else { tentativas++; errou(tentativas >= 3 ? 'PIN errado. Confira com calma.' : 'PIN errado, tente de novo.'); }
     } else if (!primeiroPin) { primeiroPin = digitado; digitado = ''; desenhaPontos(); textoPin('Confirme o PIN', 'Digite os mesmos quatro números.'); }
-    else if (digitado === primeiroPin) { db.pin = await hashPin(digitado); salvar(); mostrarApp(true); aviso('PIN salvo'); }
+    else if (digitado === primeiroPin) { db.pin = await hashPin(digitado); salvar(); mostrarApp(true); aviso('PIN salvo'); oferecerDigital(); }
     else { primeiroPin = ''; textoPin(db.pin ? 'Novo PIN' : 'Crie seu PIN', ''); errou('Os PINs não bateram. Comece de novo.'); }
   }
   function tecla(n) {
@@ -1235,6 +1236,17 @@
       await navigator.credentials.get({ publicKey: { challenge: aleatorio(32), allowCredentials: [{ type: 'public-key', id: deB64(db.digital.id) }], userVerification: 'required', timeout: 60000 } });
       tentativas = 0; mostrarApp(true);
     } catch (e) { $('#cofre-dica').textContent = 'Não deu para ler a digital. Toque no botão para tentar de novo ou use o PIN.'; }
+  }
+  function oferecerDigital() {
+    if (!suportaDigital || db.digital || db.semDigital || folha.open) return;
+    aoSalvar = null;
+    form.innerHTML = `${cabecalho('Entrar com a digital')}
+      <p class="nota" style="text-align:left">Quer abrir o caderno com a digital ou o rosto, sem digitar o PIN? O PIN continua valendo como reserva.</p>
+      <button type="button" class="btn btn-cheio" data-a="digital">${ic('digital')}Usar a digital</button>
+      <button type="button" class="btn" data-a="sem-digital">Agora não</button>
+      <p class="nota" style="text-align:left">Dá para ligar ou desligar depois em Ajustes.</p>
+      <p class="erro" id="erro" role="alert"></p>`;
+    folha.showModal();
   }
   $('#btn-digital').addEventListener('click', entrarDigital);
   try {
